@@ -1,4 +1,4 @@
-module series_1
+module main::rascal::series_1
 //https://www.rascal-mpl.org/docs/library/lang/java/m3/ast/
 import lang::java::m3::Core;
 import lang::java::m3::AST;
@@ -15,20 +15,76 @@ import Relation;
 int main() {
     loc project_loc = |project://smallsql0.21_src/|;
     asts = getASTs(project_loc);
+
+    str volume = fullVolumeProcess(project_loc);
     str unitComplexity = fullUnitComplexityProcess(asts);
     str unitSize = fullUnitSizeProcess(project_loc);
+    str duplication = fullDuplicationProcess(project_loc);
 
-    println("=============Metics=============");
-    println("Unit Complexity metric rating: <unitComplexity>");
-    println("Unit Size metric rating: <unitSize>");
-    // add in the metrics from dertje
-    println("=====Maintainability Scores=====");
-    str duplication = "++"; // default values to get it compile
-    str unitTesting = "--"; // default values to get it compile
-    println("Changeability Score: <getChangeabilityScore(unitComplexity, duplication)>");
-    println("Testability Score: <getTestabilityScore(unitComplexity, unitSize, unitTesting)>");
+    println("============= Metrics =============");
+    println("Volume rating          : <volume>");
+    println("Unit Complexity rating : <unitComplexity>");
+    println("Unit Size rating       : <unitSize>");
+    println("Duplication rating     : <duplication>");
+
+    // Maintainability aspects
+    println("===== Maintainability Scores =====");
+    str analysability = getAnalysabilityScore(volume, unitComplexity, duplication, unitSize);
+    str unitTesting = "--"; // placeholder until testing/stability
+    str changeability = getChangeabilityScore(unitComplexity, duplication);
+    str testability = getTestabilityScore(unitComplexity, unitSize, unitTesting);
+    str maintainability = getMaintainabilityScore(analysability, changeability, testability);
+
+    println("Analysability Score   : <analysability>");
+    println("Changeability Score   : <changeability>");
+    println("Testability Score     : <testability>");
+    println("Overall Maintainability: <maintainability>");
+
     return 0;
 }
+
+
+// ========================================= volume code ===================================================
+
+// Count physical lines in a string
+int countLOC(str source) {
+    return (0 | it + 1 | /\n/ := source);
+}
+
+// Get total system LOC over all Java compilation units in the project
+int getSystemLOC(loc projectLocation) {
+    M3 model = createM3FromMavenProject(projectLocation);
+    int totalLOC = 0;
+
+    for (loc f <- files(model.containment), isCompilationUnit(f)) {
+        str src = readFile(f);
+        totalLOC += countLOC(src);
+    }
+
+    return totalLOC;
+}
+
+// Map system LOC to a SIG-style rating
+str getVolumeRating(int systemLOC) {
+    if (systemLOC <= 10000) {
+        return "++";
+    } else if (systemLOC <= 50000) {
+        return "+";
+    } else if (systemLOC <= 200000) {
+        return "o";
+    } else if (systemLOC <= 1000000) {
+        return "-";
+    } else {
+        return "--";
+    }
+}
+
+// Full volume metric process
+str fullVolumeProcess(loc projectLocation) {
+    int sysLOC = getSystemLOC(projectLocation);
+    return getVolumeRating(sysLOC);
+}
+
 
 // ========================================= unit complexity code ===================================================
 
@@ -193,6 +249,123 @@ str getSizeRating(map[int, int] riskProfile){
     }
 }
 
+
+// ========================================= duplication code ==============================================
+
+data LinePos = lp(loc file, int line); // 0-based line index within file
+
+list[loc] getAllJavaFiles(loc projectLocation) {
+    M3 model = createM3FromMavenProject(projectLocation);
+    return [f | f <- files(model.containment), isCompilationUnit(f)];
+}
+
+// Count total LOC over all Java files (same definition as Volume)
+int getTotalProjectLOC(list[loc] files) {
+    int totalLOC = 0;
+    for (loc f <- files) {
+        str src = readFile(f);
+        totalLOC += countLOC(src);
+    }
+    return totalLOC;
+}
+
+// Compute the percentage of duplicated lines in 6-line blocks
+real getDuplicationPercentage(loc projectLocation) {
+    list[loc] javaFiles = getAllJavaFiles(projectLocation);
+    int totalLOC = getTotalProjectLOC(javaFiles);
+
+    // Map from 6-line block string -> list of positions where it occurs
+    map[str, list[LinePos]] blockPositions = ();
+    set[LinePos] duplicatedLines = {};
+
+    for (loc f <- javaFiles) {
+        str src = readFile(f);
+        list[str] lines = split(src, "\n");
+        int n = size(lines);
+
+        // Walk all 6-line windows
+        for (int i <- [0 .. n - 6]) {
+            str block = "<lines[i]>\n<lines[i+1]>\n<lines[i+2]>\n<lines[i+3]>\n<lines[i+4]>\n<lines[i+5]>";
+            LinePos pos = lp(f, i);
+
+            if (block in blockPositions) {
+                blockPositions[block] = blockPositions[block] + [pos];
+            } else {
+                blockPositions[block] = [pos];
+            }
+        }
+    }
+
+    // Collect all lines that are part of any duplicated 6-line block
+    for (str block <- blockPositions) {
+        list[LinePos] positions = blockPositions[block];
+        if (size(positions) > 1) {
+            for (LinePos p <- positions) {
+                switch (p) {
+                    case lp(loc f, int startLine):
+                        // Mark the 6 lines of this block as duplicated
+                        for (int k <- [0 .. 5]) {
+                            duplicatedLines += { lp(f, startLine + k) };
+                        }
+                }
+            }
+        }
+    }
+
+    if (totalLOC == 0) {
+        return 0.0;
+    }
+
+    real percentage = (size(duplicatedLines) * 100.0) / totalLOC;
+    return percentage;
+}
+
+// Map duplication percentage to rating
+str getDuplicationRating(real duplicationPercentage) {
+    if (duplicationPercentage <= 2.0) {
+        return "++";
+    } else if (duplicationPercentage <= 5.0) {
+        return "+";
+    } else if (duplicationPercentage <= 10.0) {
+        return "o";
+    } else if (duplicationPercentage <= 20.0) {
+        return "-";
+    } else {
+        return "--";
+    }
+}
+
+// Full duplication process
+str fullDuplicationProcess(loc projectLocation) {
+    real dup = getDuplicationPercentage(projectLocation);
+    return getDuplicationRating(dup);
+}
+
+// ========================================= analysability score ===========================================
+
+str getAnalysabilityScore(str volume, str unitComplexity, str duplication, str unitSize) {
+    map[str, real] ratingsKey = ("++":-2.0, "+":-1.0, "o":0.0, "-":1.0, "--":2.0);
+
+    real numerical_result =
+        (ratingsKey[volume]
+       + ratingsKey[unitComplexity]
+       + ratingsKey[duplication]
+       + ratingsKey[unitSize]) / 4.0;
+
+    if (numerical_result < -1.5) {
+        return "++";
+    } else if (numerical_result < -0.5) {
+        return "+";
+    } else if (numerical_result < 0.5) {
+        return "o";
+    } else if (numerical_result < 1.5) {
+        return "-";
+    } else {
+        return "--";
+    }
+}
+
+
 // ========================================== changeablty and testability ========================================
 
 //these are just weighted averages of the previously calculated metrics.
@@ -242,4 +415,28 @@ list[Declaration] getASTs(loc projectLocation) {
     list[Declaration] asts = [createAstFromFile(f, true)
         | f <- files(model.containment), isCompilationUnit(f)];
     return asts;
+}
+
+// ========================================= maintainability score =========================================
+
+str getMaintainabilityScore(str analysability, str changeability, str testability) {
+    map[str, real] ratingsKey = ("++":-2.0, "+":-1.0, "o":0.0, "-":1.0, "--":2.0);
+
+    // add if/when stability is computed: + ratingsKey[stability] / 4.0
+    real numerical_result =
+        (ratingsKey[analysability]
+       + ratingsKey[changeability]
+       + ratingsKey[testability]) / 3.0;
+
+    if (numerical_result < -1.5) {
+        return "++";
+    } else if (numerical_result < -0.5) {
+        return "+";
+    } else if (numerical_result < 0.5) {
+        return "o";
+    } else if (numerical_result < 1.5) {
+        return "-";
+    } else {
+        return "--";
+    }
 }
