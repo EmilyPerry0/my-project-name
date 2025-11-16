@@ -13,8 +13,19 @@ import Set;
 import Relation;
 
 int main() {
-    loc project_loc = |project://smallsql0.21_src/|;
-    asts = getASTs(project_loc);
+    loc smallsql_loc = |project://smallsql0.21_src/|;
+    loc hsql_loc = |project://hsqldb-2.3.1/|;
+    println("SmallSQL:");
+    printAllMetrics(smallsql_loc);
+    println("HSQL:");
+    printAllMetrics(hsql_loc);
+
+    return 0;
+}
+
+// main sequence code
+void printAllMetrics(loc project_loc){
+    list[Declaration] asts = getASTs(project_loc);
 
     str volume = fullVolumeProcess(project_loc);
     str unitComplexity = fullUnitComplexityProcess(asts);
@@ -39,9 +50,8 @@ int main() {
     println("Changeability Score   : <changeability>");
     println("Testability Score     : <testability>");
     println("Overall Maintainability: <maintainability>");
-
-    return 0;
 }
+
 
 
 // ========================================= volume code ===================================================
