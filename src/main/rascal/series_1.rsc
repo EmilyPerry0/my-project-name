@@ -12,11 +12,11 @@ import analysis::graphs::Graph;
 import Set;
 import Relation;
 
-int main() {
-    loc smallsql_loc = |project://smallsql0.21_src/|;
-    loc hsql_loc = |project://hsqldb-2.3.1/|;
+int main(list[str] args) {
+    loc small_sql_loc = |cwd:///smallsql0.21_src/smallsql0.21_src/|;
+    loc hsql_loc = |cwd:///hsqldb-2.3.1/hsqldb-2.3.1/|;
     println("SmallSQL:");
-    printAllMetrics(smallsql_loc);
+    printAllMetrics(small_sql_loc);
     println("HSQL:");
     printAllMetrics(hsql_loc);
 

@@ -1,0 +1,23 @@
+SmallSQL:
+============= Metrics =============
+Volume rating          : +
+Unit Complexity rating : --
+Unit Size rating       : -
+Duplication rating     : ++
+===== Maintainability Scores =====
+Analysability Score   : o
+Changeability Score   : o
+Testability Score     : --
+Overall Maintainability: -
+
+HSQL:
+============= Metrics =============
+Volume rating          : -
+Unit Complexity rating : --
+Unit Size rating       : --
+Duplication rating     : ++
+===== Maintainability Scores =====
+Analysability Score   : -
+Changeability Score   : o
+Testability Score     : --
+Overall Maintainability: -
