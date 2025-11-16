@@ -1,4 +1,4 @@
-module main::rascal::series_1
+module series_1
 //https://www.rascal-mpl.org/docs/library/lang/java/m3/ast/
 import lang::java::m3::Core;
 import lang::java::m3::AST;
@@ -284,7 +284,18 @@ real getDuplicationPercentage(loc projectLocation) {
         int n = size(lines);
 
         // Walk all 6-line windows
-        for (int i <- [0 .. n - 6]) {
+        if(n > 6){
+            for (int i <- [0 .. n - 6]) {
+                str block = "<lines[i]>\n<lines[i+1]>\n<lines[i+2]>\n<lines[i+3]>\n<lines[i+4]>\n<lines[i+5]>";
+                LinePos pos = lp(f, i);
+
+                if (block in blockPositions) {
+                    blockPositions[block] = blockPositions[block] + [pos];
+                } else {
+                    blockPositions[block] = [pos];
+                }
+            }
+        }else if(n == 6){
             str block = "<lines[i]>\n<lines[i+1]>\n<lines[i+2]>\n<lines[i+3]>\n<lines[i+4]>\n<lines[i+5]>";
             LinePos pos = lp(f, i);
 
@@ -294,6 +305,7 @@ real getDuplicationPercentage(loc projectLocation) {
                 blockPositions[block] = [pos];
             }
         }
+        
     }
 
     // Collect all lines that are part of any duplicated 6-line block
