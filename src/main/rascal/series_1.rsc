@@ -121,8 +121,6 @@ int calcCC(Declaration impl) {
         case \foreach(_,_,_) : result += 1;
         case \catch(_,_): result += 1;
         case \conditional(_,_,_): result += 1;
-        // case \infix(_,"&&",_) : result += 1;
-        // case \infix(_,"||",_) : result += 1;
     }
     return result;
 }
